@@ -6,11 +6,11 @@ from treys import Card
 from utils import logger
 from strategy.firstplay import FirstPlayStrategy
 from strategy.lowplay import LowPlayStrategy
-
+from strategy.completeplay import CompletePlayStrategy
 
 
 env = hearts_env.HeartsEnv()
-env.add_player(LowPlayStrategy())
+env.add_player(CompletePlayStrategy())
 env.add_player(FirstPlayStrategy())
 env.add_player(FirstPlayStrategy())
 env.add_player(FirstPlayStrategy())
