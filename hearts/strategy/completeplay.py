@@ -8,10 +8,18 @@ from treys import Card
 # optimize the rule if we can not win current trick or do not get punish score, drop the worst card
 class CompletePlayStrategy(strategy.IStrategy):
 
-    def __init__(self):
+    def __init__(self, first_action_card=None):
         self._evaluator = Evaluator()
+        self._first_action_card = first_action_card
 
     def move(self, observation):
+
+        # for Lookaheadplaystrategy
+        if self._first_action_card is not None:
+            first_action_card = self._first_action_card
+            self._first_action_card = None
+            return first_action_card
+
         number_of_playing_ids = len(observation['playing_ids'])
         valid_hand_cards = observation['valid_hand_cards']
         playing_cards = observation['playing_cards']

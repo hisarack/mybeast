@@ -1,3 +1,4 @@
+import random
 import gym
 from gymhearts import env as hearts_env
 from gymhearts import strategy
@@ -56,31 +57,42 @@ class LookAheadPlayStrategy(strategy.IStrategy):
             return valid_hand_cards[best_card_id]
 
     def _simulate(self, expanded_card, observation):
+        number_of_players = observation['number_of_players']
+        number_of_hand_cards_for_all_players = observation['number_of_hand_cards_for_all_players']
+        current_player_id = observation['current_player_id']
         competitor_cards = self._available_cards.copy()
         hand_cards = observation['hand_cards'].copy()
         for c in hand_cards:
             competitor_cards.remove(c)
-        # play current trick
-        
-        # play util finish the round and use complete strategy as default policy
+        random.shuffle(competitor_cards)
+        # clone the env and players
         Deck._FULL_DECK = competitor_cards
         deck = Deck()
         Deck._FULL_DECK = []
         env = hearts_env.HeartsEnv()
-        env.add_player(
-            hand_cards=hand_cards, 
-            strategy=CompletePlayStrategy()
-        )
-        for i in range(1, observation['number_of_players']):
-            env.add_player(
-                hand_cards=deck.draw(len(hand_cards)), 
-                strategy=CompletePlayStrategy()
-            )
-        observation = env.get_observation()
-        while not observation['is_new_round']:
+        for player_id in range(0, number_of_players):
+            if player_id == current_player_id:
+                env.add_player(hand_cards=hand_cards, strategy=CompletePlayStrategy(first_action_card=expanded_card))
+            else:
+                cards = deck.draw(number_of_hand_cards_for_all_players[player_id])
+                if number_of_hand_cards_for_all_players[player_id] == 1:
+                    cards = [cards]
+                env.add_player(
+                    hand_cards=cards, 
+                    strategy=CompletePlayStrategy()
+                )
+        env.copy_observation(observation)
+        env.start()
+        simulated_observation = env.get_observation()
+        # play util finish the round and use complete strategy as default policy
+        is_new_round = False
+        done = False
+        while (not is_new_round) and (not done):
             action = env.move()
-            observation, reward, done, info = env.step(action)
-        return observation['scores'][0]
+            simulated_observation, reward, done, info = env.step(action)
+            is_new_round = info['is_new_round']
+        score = simulated_observation['scores'][current_player_id]
+        return score
 
     def watch(self, observation, info):
         if info['done'] is True:
