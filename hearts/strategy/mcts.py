@@ -108,8 +108,8 @@ class Node():
 class MCTS(object):
     
     def __init__(self, budget):
-        self_budget = budget
-        self.SCALAR = 1 / math.srt(2.0) # larger scalar will increase exploitation, smaller will increase exploration
+        self._budget = budget
+        self.SCALAR = 1 / math.sqrt(2.0) # larger scalar will increase exploitation, smaller will increase exploration
 
     def UCTSEARCH(self, root):
         for iter in range(int(self._budget)):
@@ -124,11 +124,11 @@ class MCTS(object):
             if len(node.children) == 0:
                 return self.EXPAND(node)
             elif random.uniform(0,1) < .5: # exploitation
-                node=self.BESTCHILD(node, SCALAR)
+                node=self.BESTCHILD(node, self.SCALAR)
             elif node.fully_expanded() is False: # exploration   
                 return self.EXPAND(node)
             else:  
-                node=self.BESTCHILD(node, SCALAR)
+                node=self.BESTCHILD(node, self.SCALAR)
         return node
 
     def EXPAND(self, node):

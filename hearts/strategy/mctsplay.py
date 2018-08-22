@@ -1,3 +1,5 @@
+import math
+import copy
 import random
 import hashlib
 
@@ -16,56 +18,65 @@ from .mcts import IState
 
 
 class HeartState(IState):
-    NUM_TURNS = 13   
-    GOAL = 0
-    MOVES=[2,-2,3,-3]
-    MAX_VALUE= (5.0*(NUM_TURNS-1)*NUM_TURNS)/2
-    num_moves=len(MOVES)
 
     def __init__(self, observation, info):
-        deck = Deck()
-        self._available_cards = []
-        self._score = score
-        self._trick = trick
-        self._playing_cards = playing_cards
-        self._player_id = player_id
+        if 'available_cards' not in info:
+            deck = Deck()
+            info['available_cards'] = deck.draw(52)
+            for c in observation['hand_cards']:
+                info['available_cards'].remove(c)
+        self._observation = observation
+        self._info = info
         self._evaluator = Evaluator()
-        self._done = done
+        self._number_of_children = 1
+        number_of_available_cards = len(info['available_cards'])
+        self.num_moves = 1
+        for n in range(number_of_available_cards, number_of_available_cards-3, -1):
+            self.num_moves *= n
+        self.num_moves *= len(observation['hand_cards'])
 
     def next_state(self):
-        trick = observation['trick']
-        player_id = observation['current_player_id']
-        number_of_players = observation['number_of_players']
-        playing_cards = random.shuffle(info['competitor_cards'], number_of_players-1)
-        playing_cards.insert(player_id, random.choice(observation['valid_hand_cards']))
-        looser_score, looser_player_id = self._evaluator.evalute(playing_cards, playing_ids)
-        next_score = self._score
-        if looser_player_id != 0:
-            next_score += looser_score
-        done = False
-        if len(info['competitor_cards']) == number_of_players-1:
-            done = True
-        return State(
-            score = next_score,
-            trick = self._trick + 1,
-            playing_cards = playing_cards,
-            player_id = player_id,
-            done = done
-        )
+        next_observation = copy.deepcopy(self._observation)
+        next_info = copy.deepcopy(self._info)
+        trick = next_observation['trick']
+        my_player_id = next_info['my_player_id']
+        number_of_players = next_observation['number_of_players']
+
+        # generate valid hand cards
+        valid_hand_cards = next_observation['hand_cards']
+
+        # generate next playing cards
+        playing_cards = random.sample(next_info['available_cards'], number_of_players-1)
+        for c in playing_cards:
+            next_info['available_cards'].remove(c)
+        my_playing_card = random.choice(valid_hand_cards)
+        next_observation['hand_cards'].remove(my_playing_card)
+        playing_cards.insert(my_player_id, my_playing_card)
+
+        # update observation and info
+        playing_ids = range(0, number_of_players)
+        looser_score, looser_player_id = self._evaluator.evaluate(playing_cards, playing_ids)
+        if looser_player_id != my_player_id:
+            next_observation['scores'][my_player_id] += looser_score
+        next_observation['trick'] += 1
+        next_observation['playing_cards'] = playing_cards
+        return HeartState(next_observation, next_info)
     
     def get_action_card(self):
-        return self._playing_cards[self._player_id]
+        my_player_id = self._info['my_player_id']
+        return self._observation['playing_cards'][my_player_id]
 
     def terminal(self):
-        return self._done
+        return self._observation['trick'] == 13
     
     def reward(self):
-        r = 1.0 - self._score / 26
+        my_player_id = self._info['my_player_id']
+        r = 1.0 - self._observation['scores'][my_player_id] / 26
         return r
     
     def __hash__(self):
         return int(hashlib.md5(
-            (self._trick + ":" + str(self._played_cards)).encode('utf-8')
+            (str(self._observation['trick']) + ":" + str(self._info['available_cards']) + ":" + str(self._observation['hand_cards'])).encode('utf-8')
         ).hexdigest(), 16)
     
     def __eq__(self,other):
@@ -74,30 +85,22 @@ class HeartState(IState):
         return False
     
     def __repr__(self):
-        return "Score: %d; Playing Cards: %s "% (self._score, self._played_cards)
+        return "Score: %d, Playing Cards: %s "% (self._observation['scores'], self._observation['playing_cards'])
 
 
 class MCTSPlayStrategy(strategy.IStrategy):
     
-    def __init__(self, budget):
+    def __init__(self, budget, my_player_id):
+        self._my_player_id = my_player_id
         self._evaluator = Evaluator()
-        deck = Deck()
-        self._available_cards = deck.draw(52)
         self._mcts = MCTS(budget)
-        self._current_node = Node(HeartState(
-            score = 0,
-            trick = 0,
-            playing_cards = [],
-            done = False
-        ))
+        self._current_node = None
 
     def move(self, observation):
-        competitor_cards = self._available_cards.copy()
-        hand_cards = observation['hand_cards']
-        for c in hand_cards:
-            competitor_cards.remove(c)
-        info = {}
-        info['competitor_cards'] = competitor_cards
+        if self._current_node is None:
+            new_info = {}
+            new_info['my_player_id'] = self._my_player_id
+            self._current_node = Node(HeartState(observation, new_info))
         best_next_node = self._mcts.UCTSEARCH(self._current_node)
         return best_next_node.state.get_action_card()
 
@@ -105,17 +108,7 @@ class MCTSPlayStrategy(strategy.IStrategy):
         if info['done'] is True:
             pass
         elif info['is_new_round'] is True:
-            deck = Deck()
-            self._available_cards = deck.draw(52)
-        else:
-            played_card = info['action']
-            self._available_cards.remove(played_card)
-        playing_cards = observation['playing_cards']
-        if len(playing_cards) == 4:
-            self._current_node.move_to_child(HeartState(
-                score = score,
-                trick = observation['trick'],
-                playing_cards = played_cards,
-                done = info['done']
-            ))
+            self._current_node = None
+        elif len(observation['playing_cards']) == 4:
+            self._current_node = self._current_node.move_to_child(HeartState(observation, info))
 

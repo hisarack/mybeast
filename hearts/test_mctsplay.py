@@ -12,7 +12,7 @@ from strategy.mctsplay import MCTSPlayStrategy
 
 
 env = hearts_env.HeartsEnv()
-env.add_player(MCTSPlayStrategy())
+env.add_player(MCTSPlayStrategy(budget=100, my_player_id=0))
 env.add_player(FirstPlayStrategy())
 env.add_player(FirstPlayStrategy())
 env.add_player(FirstPlayStrategy())
