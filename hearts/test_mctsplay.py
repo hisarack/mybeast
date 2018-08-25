@@ -27,4 +27,4 @@ while not done:
     if (observation['trick'] == 0 and len(observation['playing_ids']) == 0) or (done is True):
         print("{}: {}".format(observation['round'], observation['scores']))
     # if len(observation['playing_ids']) == 4:
-    #    env.render()
+    env.render()

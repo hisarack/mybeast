@@ -28,11 +28,27 @@ class HeartState(IState):
         self._observation = observation
         self._info = info
         self._evaluator = Evaluator()
+        
+        # calculate number of possible combination
         number_of_available_cards = len(info['available_cards'])
+        number_of_pending_players = observation['number_of_players'] - len(observation['playing_cards'])
         self.num_moves = 1
-        for n in range(number_of_available_cards, number_of_available_cards-3, -1):
+        for n in range(number_of_available_cards, number_of_available_cards-number_of_pending_players, -1):
             self.num_moves *= n
-        self.num_moves *= len(observation['hand_cards'])
+        valid_hand_cards = self._get_valid_hand_cards(
+            observation['playing_cards'], 
+            observation['hand_cards']
+        )
+        self.num_moves *= len(valid_hand_cards)
+
+    def _get_valid_hand_cards(self, playing_cards, hand_cards):
+        valid_hand_cards = hand_cards
+        if len(playing_cards) > 0:
+            trick_suit = Card.get_suit_int(playing_cards[0])
+            valid_hand_cards = [c for c in hand_cards if Card.get_suit_int(c) == trick_suit]
+            if len(valid_hand_cards) == 0:
+                valid_hand_cards = hand_cards
+        return valid_hand_cards
 
     def next_state(self):
         next_observation = copy.deepcopy(self._observation)
@@ -44,10 +60,7 @@ class HeartState(IState):
         playing_ids = next_observation['playing_ids']
 
         # generate my player card from valid hand cards
-        valid_hand_cards = next_observation['hand_cards']
-        if len(playing_cards) > 0:
-            trick_suit = Card.get_suit_int(playing_cards[0])
-            valid_hand_cards = [c for c in next_observation['hand_cards'] if Card.get_suit_int(c) == trick_suit]
+        valid_hand_cards = self._get_valid_hand_cards(playing_cards, next_observation['hand_cards'])
         my_playing_card = random.choice(valid_hand_cards)
         next_observation['hand_cards'].remove(my_playing_card)
         playing_cards.append(my_playing_card)
@@ -60,16 +73,16 @@ class HeartState(IState):
             next_info['available_cards'].remove(c)
         for p in range(playing_ids[-1] + 1, playing_ids[-1] + number_of_pending_players + 1):
             playing_ids.append(p % number_of_players)
-        
-        print(playing_ids)
-        print(playing_cards)
-        print(len(next_info['available_cards']))
-        print(len(next_observation['hand_cards']))
-
+ 
         # update observation and info
         next_observation['trick'] += 1
+        next_info['my_played_card'] = my_playing_card
+        next_info['my_played_reward'] = 0
         looser_score, looser_player_id = self._evaluator.evaluate(playing_cards, playing_ids)
-        if looser_player_id == my_player_id:
+        if next_observation['trick'] == 13:
+            pass
+        elif looser_player_id == my_player_id:
+            next_info['my_played_reward'] = looser_score
             next_observation['scores'][my_player_id] += looser_score
             next_observation['playing_cards'] = []
             next_observation['playing_ids'] = []
@@ -83,19 +96,16 @@ class HeartState(IState):
                 next_info['available_cards'].remove(c)
             next_observation['playing_ids'] = next_playing_ids
             next_observation['playing_cards'] = next_playing_cards
-        
         return HeartState(next_observation, next_info)
     
     def get_action_card(self):
-        my_player_id = self._info['my_player_id']
-        return self._observation['playing_cards'][my_player_id]
+        return self._info['my_played_card']
 
     def terminal(self):
         return self._observation['trick'] == 13
     
     def reward(self):
-        my_player_id = self._info['my_player_id']
-        r = 1.0 - self._observation['scores'][my_player_id] / 26
+        r = 1.0 - self._info['my_played_reward'] / 26
         return r
     
     def __hash__(self):
