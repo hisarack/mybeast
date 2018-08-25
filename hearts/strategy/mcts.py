@@ -88,8 +88,7 @@ class Node():
         for child in self.children:
             if child_state == child_state:
                 return child
-        print('can not find child')
-        return None
+        raise Exception('can not find child')
 
     def update(self, reward):
         self.reward+=reward
@@ -111,32 +110,32 @@ class MCTS(object):
         self._budget = budget
         self.SCALAR = 1 / math.sqrt(2.0) # larger scalar will increase exploitation, smaller will increase exploration
 
-    def UCTSEARCH(self, root):
+    def UCTSEARCH(self, root, observation):
         for iter in range(int(self._budget)):
-            front = self.TREEPOLICY(root)
+            front = self.TREEPOLICY(root, observation)
             reward = self.DEFAULTPOLICY(front.state)
             self.BACKUP(front, reward)
         return self.BESTCHILD(root, 0)
 
-    def TREEPOLICY(self, node):
+    def TREEPOLICY(self, node, observation):
         #a hack to force 'exploitation' in a game where there are many options, and you may never/not want to fully expand first
         while node.state.terminal() is False:
             if len(node.children) == 0:
-                return self.EXPAND(node)
+                return self.EXPAND(node, observation)
             elif random.uniform(0,1) < .5: # exploitation
                 node=self.BESTCHILD(node, self.SCALAR)
             elif node.fully_expanded() is False: # exploration   
-                return self.EXPAND(node)
+                return self.EXPAND(node, observation)
             else:  
                 node=self.BESTCHILD(node, self.SCALAR)
         return node
 
-    def EXPAND(self, node):
+    def EXPAND(self, node, observation):
         # find out the un-expanded state
         tried_children=[c.state for c in node.children]
-        new_state = node.state.next_state()
+        new_state = node.state.next_state_with_observation(observation)
         while new_state in tried_children:
-            new_state = node.state.next_state()
+            new_state = node.state.next_state_with_observation(observation)
         node.add_child(new_state)
         return node.children[-1]
 
@@ -154,7 +153,7 @@ class MCTS(object):
                 bestchildren = [c]
                 bestscore = score
         if len(bestchildren) == 0:
-            print("OOPS: no best child found, probably fatal")
+            raise Exception("OOPS: no best child found, probably fatal")
         return random.choice(bestchildren)
 
     def DEFAULTPOLICY(self, state):

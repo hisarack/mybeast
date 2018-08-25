@@ -23,6 +23,8 @@ print("{}: {}".format(observation['round'], observation['scores']))
 done = False
 while not done:
     action = env.move()
+    Card.print_pretty_cards(observation['hand_cards'])
+    print(Card.print_pretty_cards([action]))
     observation, reward, done, info = env.step(action)
     if (observation['trick'] == 0 and len(observation['playing_ids']) == 0) or (done is True):
         print("{}: {}".format(observation['round'], observation['scores']))
