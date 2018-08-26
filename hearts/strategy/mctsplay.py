@@ -54,7 +54,7 @@ class HeartState(IState):
                 valid_hand_cards = hand_cards
         return valid_hand_cards
 
-    def next_state(self):
+    def _create_next_observation(self):
         # prepare the playing cards and ids
         number_of_players = self._observation['number_of_players']
         first_player_id = 0
@@ -65,14 +65,17 @@ class HeartState(IState):
         if first_player_id > my_player_id:
             end_player_id += number_of_players
         playing_ids = [p % number_of_players for p in range(first_player_id, end_player_id)]
-        print('{}: {}: {}'.format(len(self._info['available_cards']), len(self._observation['hand_cards']), len(playing_ids)))
+        print('ac={}: hc={}: p={}: fp={}'.format(
+            len(self._info['available_cards']), len(self._observation['hand_cards']), len(playing_ids), first_player_id))
         playing_cards = random.sample(self._info['available_cards'], len(playing_ids))
         next_observation = copy.deepcopy(self._observation)
         next_observation['playing_ids'] = playing_ids
         next_observation['playing_cards'] = playing_cards
-        return self.next_state_with_observation(next_observation)
+        return next_observation
 
-    def next_state_with_observation(self, observation):
+    def next_state(self, observation=None):
+        if observation is None:
+            observation = self._create_next_observation()
         next_observation = copy.deepcopy(observation)
         next_info = copy.deepcopy(self._info)
         trick = next_observation['trick']
@@ -89,14 +92,15 @@ class HeartState(IState):
         playing_ids.append(my_player_id)
         
         # generate competitor playing cards and remove them from available cards
-        number_of_pending_players = number_of_players - len(playing_cards)
-        for c in random.sample(next_info['available_cards'], number_of_pending_players):
-            playing_cards.append(c)
-        for p in range(playing_ids[-1] + 1, playing_ids[-1] + number_of_pending_players + 1):
-            playing_ids.append(p % number_of_players)
         for c in playing_cards:
             if c in next_info['available_cards']:
                 next_info['available_cards'].remove(c)
+        number_of_pending_players = number_of_players - len(playing_cards)
+        for c in random.sample(next_info['available_cards'], number_of_pending_players):
+            playing_cards.append(c)
+            next_info['available_cards'].remove(c)
+        for p in range(playing_ids[-1] + 1, playing_ids[-1] + number_of_pending_players + 1):
+            playing_ids.append(p % number_of_players)
 
         # update observation and info
         next_observation['trick'] += 1
@@ -104,9 +108,7 @@ class HeartState(IState):
         next_info['my_played_reward'] = 0
         looser_score, looser_player_id = self._evaluator.evaluate(playing_cards, playing_ids)
         next_info['punish_player_id'] = looser_player_id
-        if next_observation['trick'] == 13:
-            pass
-        elif looser_player_id == my_player_id:
+        if looser_player_id == my_player_id:
             next_info['my_played_reward'] = looser_score
             next_observation['scores'][my_player_id] += looser_score
         next_observation['playing_ids'] = playing_ids
@@ -157,11 +159,13 @@ class MCTSPlayStrategy(strategy.IStrategy):
         self._current_node = None
 
     def move(self, observation):
+        print('lala')
         if self._current_node is None:
             new_mcts_info = {}
             new_mcts_info['my_player_id'] = self._my_player_id
             self._current_node = Node(HeartState(observation, new_mcts_info))
         best_next_node = self._mcts.UCTSEARCH(self._current_node, observation)
+        print('move')
         return best_next_node.state.get_action_card()
 
     def watch(self, observation, info):

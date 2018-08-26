@@ -119,23 +119,26 @@ class MCTS(object):
 
     def TREEPOLICY(self, node, observation):
         #a hack to force 'exploitation' in a game where there are many options, and you may never/not want to fully expand first
+        ob=observation
         while node.state.terminal() is False:
             if len(node.children) == 0:
-                return self.EXPAND(node, observation)
+                return self.EXPAND(node, ob)
             elif random.uniform(0,1) < .5: # exploitation
+                ob=None
                 node=self.BESTCHILD(node, self.SCALAR)
-            elif node.fully_expanded() is False: # exploration   
-                return self.EXPAND(node, observation)
-            else:  
+            elif node.fully_expanded() is False: # exploration  
+                return self.EXPAND(node, ob)
+            else:
+                ob=None
                 node=self.BESTCHILD(node, self.SCALAR)
         return node
 
-    def EXPAND(self, node, observation):
+    def EXPAND(self, node, observation=None):
         # find out the un-expanded state
         tried_children=[c.state for c in node.children]
-        new_state = node.state.next_state_with_observation(observation)
+        new_state = node.state.next_state(observation)
         while new_state in tried_children:
-            new_state = node.state.next_state_with_observation(observation)
+            new_state = node.state.next_state(observation)
         node.add_child(new_state)
         return node.children[-1]
 
