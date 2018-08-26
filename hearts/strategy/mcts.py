@@ -2,6 +2,7 @@ import random
 import math
 import hashlib
 
+from treys import Card
 
 """
 A quick Monte Carlo Tree Search implementation.  For more details on MCTS see See http://pubs.doc.ic.ac.uk/survey-mcts-methods/survey-mcts-methods.pdf
@@ -86,7 +87,7 @@ class Node():
     def move_to_child(self, child_state):
         self.add_child(child_state)
         for child in self.children:
-            if child_state == child_state:
+            if child.state == child_state:
                 return child
         raise Exception('can not find child')
 
@@ -95,6 +96,11 @@ class Node():
         self.visits+=1
     
     def fully_expanded(self):
+        Card.print_pretty_cards(self.state._get_valid_hand_cards(
+            self.state._observation['playing_cards'],
+            self.state._info['my_hand_cards'],
+        ))
+        print('{}:{}'.format(len(self.children), self.state.num_moves))
         if len(self.children) == self.state.num_moves:
             return True
         return False
