@@ -12,9 +12,9 @@ from strategy.lookaheadplay import LookAheadPlayStrategy
 
 env = hearts_env.HeartsEnv()
 env.add_player(LookAheadPlayStrategy())
-env.add_player(FirstPlayStrategy())
-env.add_player(FirstPlayStrategy())
-env.add_player(FirstPlayStrategy())
+env.add_player(CompletePlayStrategy())
+env.add_player(CompletePlayStrategy())
+env.add_player(CompletePlayStrategy())
 env.start()
 # env.render()
 observation = env.get_observation()

@@ -27,17 +27,14 @@ class HeartState(IState):
         # calculate number of possible combination
         number_of_available_cards = len(info['available_cards'])
         number_of_pending_players = observation['number_of_players'] - len(observation['playing_cards']) - 1
-        self.qq = []
         self.num_moves = 1
         for n in range(number_of_available_cards, number_of_available_cards-number_of_pending_players, -1):
             self.num_moves *= n
-            self.qq.append(n)
         valid_hand_cards = self._get_valid_hand_cards(
             observation['playing_cards'], 
             info['my_hand_cards']
         )
         self.num_moves *= len(valid_hand_cards)
-        self.qq.append(len(valid_hand_cards))
 
     def _get_valid_hand_cards(self, playing_cards, hand_cards):
         valid_hand_cards = hand_cards
@@ -199,3 +196,5 @@ class MCTSPlayStrategy(strategy.IStrategy):
             new_mcts_info['punish_player_id'] = info['punish_player_id']
             next_state = HeartState(observation, new_mcts_info)
             self._current_node = self._current_node.move_to_child(next_state)
+
+

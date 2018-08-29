@@ -38,7 +38,7 @@ class LookAheadPlayStrategy(strategy.IStrategy):
             if (max_suit != first_suit) or (punish_score == 0):
                 return valid_hand_cards[max_card_id]
             # we will be the looser in this round, so just drop max card.
-            elif valid_hand_ranks[min_card_id] > min(competitor_ranks):
+            elif valid_hand_ranks[min_card_id] > max(competitor_ranks):
                 return valid_hand_cards[max_card_id]
             # drop the card which is not larger then biggest playing card.
             else:
