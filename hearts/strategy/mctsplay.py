@@ -23,18 +23,11 @@ class HeartState(IState):
         self._observation = copy.deepcopy(observation)
         self._info = copy.deepcopy(info)
         self._evaluator = Evaluator()
-        
-        # calculate number of possible combination
-        number_of_available_cards = len(info['available_cards'])
-        number_of_pending_players = observation['number_of_players'] - len(observation['playing_cards']) - 1
-        self.num_moves = 1
-        for n in range(number_of_available_cards, number_of_available_cards-number_of_pending_players, -1):
-            self.num_moves *= n
         valid_hand_cards = self._get_valid_hand_cards(
             observation['playing_cards'], 
             info['my_hand_cards']
         )
-        self.num_moves *= len(valid_hand_cards)
+        self.num_moves = len(valid_hand_cards)
 
     def _get_valid_hand_cards(self, playing_cards, hand_cards):
         valid_hand_cards = hand_cards
@@ -65,6 +58,13 @@ class HeartState(IState):
     def next_state(self, observation=None):
         if observation is None:
             observation = self._create_next_observation()
+        else:
+            valid_hand_cards = self._get_valid_hand_cards(
+                observation['playing_cards'], 
+                self._info['my_hand_cards']
+            )
+            self.num_moves = len(valid_hand_cards)
+
         next_observation = copy.deepcopy(observation)
         next_info = copy.deepcopy(self._info)
         trick = next_observation['trick']
@@ -166,15 +166,23 @@ class MCTSPlayStrategy(strategy.IStrategy):
             for c in new_mcts_info['my_hand_cards']:
                 new_mcts_info['available_cards'].remove(c)
             self._current_node = Node(HeartState(observation, new_mcts_info))
+            if len(observation['playing_ids']) == 0:
+                return Card.new('2c')
         best_next_node = self._mcts.UCTSEARCH(self._current_node, observation)
         return best_next_node.state.get_action_card()
+
+    def _show_cards(self, hand_cards):
+        suitrank_ints = [c & 0xFF00 for c in hand_cards] 
+        sorted_indices = sorted(range(len(suitrank_ints)), key=lambda k: suitrank_ints[k])
+        sorted_cards = [hand_cards[ind] for ind in sorted_indices]
+        qq = [Card.int_to_pretty_str(c) for c in sorted_cards]
+        print(' '.join(qq))
 
     def watch(self, observation, info):
         if info['done'] is True:
             pass
         elif info['is_new_round'] is True:
             self._current_node = None
-            print('new round')
         elif len(observation['playing_cards']) == 4:
             my_played_card = observation['playing_cards'][observation['playing_ids'].index(self._my_player_id)]
             my_played_reward = 0

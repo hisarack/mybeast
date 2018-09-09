@@ -96,11 +96,6 @@ class Node():
         self.visits+=1
     
     def fully_expanded(self):
-        Card.print_pretty_cards(self.state._get_valid_hand_cards(
-            self.state._observation['playing_cards'],
-            self.state._info['my_hand_cards'],
-        ))
-        print('{}:{}'.format(len(self.children), self.state.num_moves))
         if len(self.children) == self.state.num_moves:
             return True
         return False
